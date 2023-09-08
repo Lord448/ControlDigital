@@ -1,9 +1,0 @@
-main.c:30:5:main	2
-main.c:56:13:vTaskADC	2
-main.c:69:13:vTaskSend	2
-main.c:80:6:HAL_TIM_PeriodElapsedCallback	1
-main.c:90:6:SystemClock_Config	4
-main.c:138:13:MX_ADC1_Init	3
-main.c:185:13:MX_TIM1_Init	4
-main.c:231:13:MX_GPIO_Init	1
-main.c:264:6:Error_Handler	1
