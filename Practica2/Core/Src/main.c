@@ -43,7 +43,6 @@ static void MX_TIM3_Init(void);
 static void MX_I2C1_Init(void);
 static void vTaskTimer(void);
 static void vTaskOLED(void);
-static void vTaskDAC(void);
 static uint16_t Debounce(Button *Button, uint16_t Samples);
 static void ButtonInit(Button *Button, GPIO_TypeDef *GPIOx, uint16_t Pin);
 
@@ -79,7 +78,6 @@ int main(void)
   {
 	  vTaskTimer();
 	  vTaskOLED();
-	  vTaskDAC();
 #ifdef USER_DEBUG
 	  while(ParsedFlag);
 	  ParsedFlag = true;
@@ -194,14 +192,6 @@ static void vTaskOLED(void)
 	}
 }
 
-static void vTaskDAC(void)
-{
-	uint8_t val = 0xFF;
-	uint32_t tmp;
-	tmp = GPIOA -> ODR & WriteMask;
-	GPIOA -> ODR = tmp | val;
-}
-
 /**
  * @brief This function debounce a terminal, it detects the falling edge
  * 		  and avoids the terminal noise and button bouncing. it is
@@ -275,12 +265,16 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	char Buffer[10];
 	uint16_t ADC_Res = HAL_ADC_GetValue(hadc);
+	uint32_t tmp, val;
 	HAL_GPIO_WritePin(ADCFreq_GPIO_Port, ADCFreq_Pin, 1);
 	sprintf(Buffer, "%d \r\n", (int)ADC_Res);
 	if(CDC_getReady() == USBD_OK)
 	{
 	  CDC_Transmit_FS((uint8_t *) Buffer, strlen(Buffer));
 	}
+	val = (ADC_Res * 0xFF) / 4095;
+	tmp = GPIOA -> ODR & WriteMask;
+	GPIOA -> ODR = tmp | val;
 }
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
