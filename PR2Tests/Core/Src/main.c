@@ -8,9 +8,8 @@
 
 #define SAMPLES	 5
 #define WriteMask 0xFFFFFF00
-#define USER_DEBUG
 
-typedef enum bool {
+typedef enum bool{
 	false,
 	true
 }bool;
@@ -32,23 +31,19 @@ ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c1;
 
-TIM_HandleTypeDef htim1; //Parsed Loop handler @ 2ms
-TIM_HandleTypeDef htim3; //ADC Trigger - PSC @ 54
+TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim3; //ADC Trigger
 
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_I2C1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_I2C1_Init(void);
 static void vTaskTimer(void);
 static void vTaskOLED(void);
 static uint16_t Debounce(Button *Button, uint16_t Samples);
 static void ButtonInit(Button *Button, GPIO_TypeDef *GPIOx, uint16_t Pin);
-
-#ifdef USER_DEBUG
-bool ParsedFlag = true;
-#endif
 
 //Considering the "0" of the two byte register of the timer
 const uint32_t counterPeriod[5] = {65454, 26182, 13090, 1309, 131}; //20Hz 50Hz 100Hz 1KHz 10KHz
@@ -61,31 +56,17 @@ int main(void)
   SystemClock_Config();
   MX_GPIO_Init();
   MX_ADC1_Init();
+  MX_I2C1_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
-  MX_I2C1_Init();
   MX_USB_DEVICE_Init();
   ButtonInit(&btnNext, Next_GPIO_Port, Next_Pin);
   ButtonInit(&btnPrev, Prev_GPIO_Port, Prev_Pin);
-  SSD1306_Init();
-  SSD1306_GotoXY(31, 2);
-  SSD1306_Puts("Freq", &Font_16x26, 1);
-  HAL_TIM_Base_Start_IT(&htim1);
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1); //Start at 20Hz
   HAL_ADCEx_Calibration_Start(&hadc1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_ADC_Start_IT(&hadc1);
   while (1)
   {
-	  vTaskTimer();
-	  vTaskOLED();
-#ifdef USER_DEBUG
-	  while(ParsedFlag);
-	  ParsedFlag = true;
-#else
-	  HAL_SuspendTick();
-	  HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
-	  HAL_ResumeTick();
-#endif
   }
 }
 
@@ -282,13 +263,6 @@ void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	HAL_GPIO_WritePin(ADCFreq_GPIO_Port, ADCFreq_Pin, 0);
 }
-
-#ifdef USER_DEBUG
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	ParsedFlag = false;
-}
-#endif
 
 /**
   * @brief System Clock Configuration
@@ -568,7 +542,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pins : Next_Pin Prev_Pin */
   GPIO_InitStruct.Pin = Next_Pin|Prev_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : ADCFreq_Pin */
