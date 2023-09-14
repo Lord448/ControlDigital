@@ -59,10 +59,10 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define Next_Pin GPIO_PIN_1
 #define Next_GPIO_Port GPIOB
-#define Prev_Pin GPIO_PIN_2
-#define Prev_GPIO_Port GPIOB
 #define ADCFreq_Pin GPIO_PIN_10
 #define ADCFreq_GPIO_Port GPIOB
+#define Prev_Pin GPIO_PIN_3
+#define Prev_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

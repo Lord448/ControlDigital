@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define SAMPLES	 5
+#define SAMPLES	 10
 #define WriteMask 0xFFFFFF00
 #define USER_DEBUG
 
@@ -70,6 +70,7 @@ int main(void)
   SSD1306_Init();
   SSD1306_GotoXY(31, 2);
   SSD1306_Puts("Freq", &Font_16x26, 1);
+  SSD1306_UpdateScreen();
   HAL_TIM_Base_Start_IT(&htim1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1); //Start at 20Hz
   HAL_ADCEx_Calibration_Start(&hadc1);
@@ -131,8 +132,16 @@ static void vTaskOLED(void)
 	}static stages = ConstructBuffer;
 
 	static char Buffer[7];
+	static bool needToErase = false;
 	const uint16_t y = 32;
 
+	if(needToErase && FreqSelector != 4 && FreqSelector != 2)
+	{
+		SSD1306_GotoXY(46, y);
+		SSD1306_Puts("     ", &Font_7x10, 1);
+		SSD1306_UpdateScreen();
+		needToErase = false;
+	}
 	switch(stages)
 	{
 		case ConstructBuffer:
@@ -148,6 +157,7 @@ static void vTaskOLED(void)
 				break;
 				case 2:
 					sprintf(Buffer, "100Hz");
+					needToErase = true;
 					stages = Goto;
 				break;
 				case 3:
@@ -156,6 +166,7 @@ static void vTaskOLED(void)
 				break;
 				case 4:
 					sprintf(Buffer, "10KHz");
+					needToErase = true;
 					stages = Goto;
 				break;
 			}
@@ -187,8 +198,10 @@ static void vTaskOLED(void)
 		break;
 		case Print:
 			SSD1306_Puts(Buffer, &Font_7x10, 1);
+			SSD1306_UpdateScreen();
 			stages = ConstructBuffer;
 		break;
+
 	}
 }
 
@@ -261,7 +274,7 @@ static void ButtonInit(Button *Button, GPIO_TypeDef *GPIOx, uint16_t Pin)
 	Button -> Stages = WaitingLow;
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) //Late 22.7us
 {
 	char Buffer[10];
 	uint16_t ADC_Res = HAL_ADC_GetValue(hadc);
@@ -276,10 +289,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	DACVal = (ADC_Res * 0xFF) / 4095; //Scaling data from 12bits to 8bits
 	tmp = GPIOA -> ODR & WriteMask;
 	GPIOA -> ODR = tmp | DACVal;
-}
-
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
-{
 	HAL_GPIO_WritePin(ADCFreq_GPIO_Port, ADCFreq_Pin, 0);
 }
 
