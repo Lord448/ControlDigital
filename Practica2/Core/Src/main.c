@@ -51,7 +51,7 @@ bool ParsedFlag = true;
 #endif
 
 //Considering the "0" of the two byte register of the timer
-const uint32_t counterPeriod[5] = {65454, 26182, 13090, 1309, 131}; //20Hz 50Hz 100Hz 1KHz 10KHz
+const uint32_t counterPeriod[5] = {65454, 26182, 13090, 2618, 131}; //20Hz 50Hz 100Hz 500Hz 10KHz
 int16_t FreqSelector = 0;
 Button btnNext, btnPrev;
 
