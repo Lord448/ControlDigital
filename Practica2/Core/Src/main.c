@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define SAMPLES	 10
+#define SAMPLES 8
 #define WriteMask 0xFFFFFF00
 #define USER_DEBUG
 
@@ -135,7 +135,7 @@ static void vTaskOLED(void)
 	static bool needToErase = false;
 	const uint16_t y = 32;
 
-	if(needToErase && FreqSelector != 4 && FreqSelector != 2)
+	if(needToErase && FreqSelector < 2)
 	{
 		SSD1306_GotoXY(46, y);
 		SSD1306_Puts("     ", &Font_7x10, 1);
@@ -161,7 +161,8 @@ static void vTaskOLED(void)
 					stages = Goto;
 				break;
 				case 3:
-					sprintf(Buffer, "1KHz");
+					sprintf(Buffer, "500Hz");
+					needToErase = true;
 					stages = Goto;
 				break;
 				case 4:
@@ -187,7 +188,7 @@ static void vTaskOLED(void)
 					stages = Print;
 				break;
 				case 3:
-					SSD1306_GotoXY(49, y);
+					SSD1306_GotoXY(46, y);
 					stages = Print;
 				break;
 				case 4:
