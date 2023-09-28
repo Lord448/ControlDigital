@@ -61,12 +61,14 @@ void Error_Handler(void);
 #define ADCFreq_GPIO_Port GPIOB
 #define Transistor_Pin GPIO_PIN_8
 #define Transistor_GPIO_Port GPIOA
+#define TransistorN_Pin GPIO_PIN_9
+#define TransistorN_GPIO_Port GPIOA
 #define Next_Pin GPIO_PIN_3
 #define Next_GPIO_Port GPIOB
 #define Prev_Pin GPIO_PIN_4
 #define Prev_GPIO_Port GPIOB
-#define Start_Pin GPIO_PIN_5
-#define Start_GPIO_Port GPIOB
+#define Start_Stop_Pin GPIO_PIN_5
+#define Start_Stop_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
