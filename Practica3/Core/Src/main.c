@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define SAMPLES 10
+#define SAMPLES 5
 #define WriteMask 0xFFFFFF00
 #define USER_DEBUG
 
@@ -78,6 +78,7 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim1);
   HAL_ADCEx_Calibration_Start(&hadc1);
   HAL_ADC_Start_IT(&hadc1);
+  HAL_GPIO_WritePin(TransistorN_GPIO_Port, TransistorN_Pin, 1);
   while (1)
   {
 	  vTaskStart();
@@ -99,34 +100,36 @@ static void vTaskStart(void)
 {
 	enum stages{
 		Idle,
-		Wait,
 		Start,
 		Stop
 	}static stages = Idle;
 	static uint16_t DelayCounts = 0;
 	static bool StopFlag = false;
+	static bool IdleFlag = false;
 
 	switch(stages)
 	{
 		case Idle:
-			if(Debounce(&btnStartStop, SAMPLES) == 1)
-				stages = Wait;
-		break;
-		case Wait:
-			HAL_GPIO_WritePin(Transistor_GPIO_Port, Transistor_Pin, 0);
-			if(DelayCounts >= 1) //Wait for 2ms for turn down the transistor
-				HAL_GPIO_WritePin(TransistorN_GPIO_Port, TransistorN_Pin, 1);
-			DelayCounts++; //Each 2ms
-			if(DelayCounts >= 3) //Wait for 6ms for discharge capacitor, Tao = 5.14ms
+			if(Debounce(&btnStartStop, SAMPLES) == 1 || IdleFlag)
 			{
-				stages = Start;
-				DelayCounts = 0;
+				IdleFlag = true;
+				HAL_GPIO_WritePin(Transistor_GPIO_Port, Transistor_Pin, 0);
+				if(DelayCounts >= 1) //Wait for 2ms for turn down the transistor
+					HAL_GPIO_WritePin(TransistorN_GPIO_Port, TransistorN_Pin, 1);
+				DelayCounts++; //Each 2ms
+				if(DelayCounts >= 3) //Wait for 6ms for discharge capacitor, Tao = 5.14ms
+				{
+					stages = Start;
+					IdleFlag = false;
+					DelayCounts = 0;
+				}
 			}
+
 		break;
 		case Start:
 			DelayCounts++;
 			HAL_GPIO_WritePin(TransistorN_GPIO_Port, TransistorN_Pin, 0);
-			if(DelayCounts >= 1) //Delay for 2ms
+			if(DelayCounts >= 2) //Delay for 2ms
 			{
 				HAL_GPIO_WritePin(Transistor_GPIO_Port, Transistor_Pin, 1);
 				HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
@@ -134,6 +137,7 @@ static void vTaskStart(void)
 				stages = Stop;
 				DelayCounts = 0;
 			}
+
 		break;
 		case Stop:
 			if(Debounce(&btnStartStop, SAMPLES) == 1 || StopFlag)
@@ -142,11 +146,13 @@ static void vTaskStart(void)
 				StopFlag = true;
 				HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
 				HAL_GPIO_WritePin(Transistor_GPIO_Port, Transistor_Pin, 0);
-				if(DelayCounts >= 1) //Delay for 2ms
+				if(DelayCounts >= 2) //Delay for 2ms
 				{
 					HAL_GPIO_WritePin(TransistorN_GPIO_Port, TransistorN_Pin, 1);
 					TurnOnFlag = false;
 					stages = Idle;
+					DelayCounts = 0;
+					StopFlag = false;
 				}
 			}
 		break;
@@ -189,7 +195,6 @@ static void vTaskOLED(void)
 {
 	enum stages{
 		ConstructBuffer,
-		Goto,
 		Print
 	}static stages = ConstructBuffer;
 
@@ -197,10 +202,10 @@ static void vTaskOLED(void)
 	static bool needToErase = false;
 	const uint16_t y = 20;
 
-	if(needToErase && FreqSelector != 3 && FreqSelector != 0)
+	if(needToErase && (FreqSelector == 3 || FreqSelector == 0))
 	{
 		SSD1306_GotoXY(36, y);
-		SSD1306_Puts("     ", &Font_11x18, 1);
+		SSD1306_Puts("       ", &Font_11x18, 1);
 		SSD1306_UpdateScreen();
 		needToErase = false;
 	}
@@ -211,46 +216,40 @@ static void vTaskOLED(void)
 			{
 				case 0:
 					sprintf(Buffer, "10Hz");
-					stages = Goto;
+					stages = Print;
 				break;
 				case 1:
 					sprintf(Buffer, "100Hz");
 					needToErase = true;
-					stages = Goto;
+					stages = Print;
 				break;
 				case 2:
 					sprintf(Buffer, "500Hz");
 					needToErase = true;
-					stages = Goto;
+					stages = Print;
 				break;
 				case 3:
 					sprintf(Buffer, "1KHz");
-					stages = Goto;
-				break;
-			}
-		break;
-		case Goto:
-			switch(FreqSelector)
-			{
-				case 0:
-					SSD1306_GotoXY(41, y);
-					stages = Print;
-				break;
-				case 1:
-					SSD1306_GotoXY(36, y);
-					stages = Print;
-				break;
-				case 2:
-					SSD1306_GotoXY(36, y);
-					stages = Print;
-				break;
-				case 3:
-					SSD1306_GotoXY(41, y);
 					stages = Print;
 				break;
 			}
 		break;
 		case Print:
+			switch(FreqSelector)
+			{
+				case 0:
+					SSD1306_GotoXY(41, y);
+				break;
+				case 1:
+					SSD1306_GotoXY(36, y);
+				break;
+				case 2:
+					SSD1306_GotoXY(36, y);
+				break;
+				case 3:
+					SSD1306_GotoXY(41, y);
+				break;
+			}
 			SSD1306_Puts(Buffer, &Font_11x18, 1);
 			SSD1306_UpdateScreen();
 			stages = ConstructBuffer;
@@ -275,18 +274,18 @@ static void vTaskOLEDStart(void)
 				stages = Print;
 		break;
 		case Print:
-			SSD1306_GotoXY(10, y);
+			SSD1306_GotoXY(25, y);
 			SSD1306_Puts("       ", &Font_11x18, 1);
 			SSD1306_UpdateScreen();
 			if(TurnOnFlag)
 			{
-				SSD1306_GotoXY(10, y);
+				SSD1306_GotoXY(25, y);
 				SSD1306_Puts("Started", &Font_11x18, 1);
 				SSD1306_UpdateScreen();
 			}
 			else
 			{
-				SSD1306_GotoXY(10, y);
+				SSD1306_GotoXY(41, y);
 				SSD1306_Puts("Idle", &Font_11x18, 1);
 				SSD1306_UpdateScreen();
 			}
@@ -369,7 +368,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) //Late 22.7us
 {
 	char Buffer[10];
 	uint16_t ADC_Res = HAL_ADC_GetValue(hadc);
-	uint32_t tmp, DACVal;
+	uint32_t tmp;
+	uint8_t DACVal;
 
 	HAL_GPIO_WritePin(ADCFreq_GPIO_Port, ADCFreq_Pin, 1);
 	sprintf(Buffer, "%d \r\n", (int)ADC_Res);
